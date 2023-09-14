@@ -6,6 +6,7 @@
 
 #include "core/uart.h"
 #include "core/system.h"
+#include "core/simple-timer.h"
 #include "comms.h"
 #include "bl-flash.h"
 
@@ -37,26 +38,25 @@ static void jump_to_main(void) {
 	main_vector_table->reset();
 }
 
+
 int main(void) {
 	system_setup();
+
+	simple_timer_t tm,tm2;
+	simple_timer_setup(&tm,1000,false);
+	simple_timer_setup(&tm2,2000,true);
 	// gpio_setup();
 	// uart_setup();
 	// comms_setup();
 
-	uint8_t data[1024] = {0};
-	for (uint16_t i=0;i<1024;i++) {
-		data[i]=i&0xff;
-	}
-
-	bl_flash_erase_main_application();
-	bl_flash_write(0x08008000, data, 1024);
-	bl_flash_write(0x0800c000, data, 1024);
-	bl_flash_write(0x08010000, data, 1024);
-	bl_flash_write(0x08020000, data, 1024);
-	bl_flash_write(0x08040000, data, 1024);
-	bl_flash_write(0x08060000, data, 1024);
-
 	while (true) {
+		if (simple_timer_has_elapsed(&tm)) {
+			volatile int x = 0;
+			x++; // log message here in debugger
+		}
+		if (simple_timer_has_elapsed(&tm2)) {
+			simple_timer_reset(&tm);
+		}
 	}
 
 	// TODO: teardown, de-initialized peripherals.
