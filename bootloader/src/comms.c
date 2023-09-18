@@ -1,3 +1,4 @@
+#include <string.h>
 #include "comms.h"
 #include "core/uart.h"
 #include "core/crc8.h"
@@ -19,7 +20,7 @@ uint8_t comms_compute_crc(comms_packet_t* pkt) {
 	return crc8((uint8_t*)pkt, PACKET_LENGTH - PACKET_CRC_BYTES);
 }
 
-static bool comms_is_single_byte_packet(comms_packet_t* pkt, uint8_t byte) {
+bool comms_is_single_byte_packet(comms_packet_t* pkt, uint8_t byte) {
 	if (pkt->length != 1) return false;
 	if (pkt->data[0] != byte) return false;
 	for (uint8_t i=1;i<PACKET_DATA_LENGTH;i++) {
@@ -28,31 +29,26 @@ static bool comms_is_single_byte_packet(comms_packet_t* pkt, uint8_t byte) {
 	return true;
 }
 
+void comms_create_single_byte_packet(comms_packet_t* pkt, uint8_t byte) {
+	memset(pkt->data,0xff,PACKET_DATA_LENGTH);
+	pkt->length = 1;
+	pkt->data[0] = byte;
+	pkt->crc = comms_compute_crc(pkt);
+}
+
 #define PACKET_RETX_DATA0 (0x19)
 static comms_packet_t retx_pkt = { .length=1, .data={0xff}, .crc=0 };
-static void retx_pkt_init(void) {
-	retx_pkt.data[0] = PACKET_RETX_DATA0;
-	retx_pkt.crc = comms_compute_crc(&retx_pkt);
-}
 
 #define PACKET_ACK_DATA0 (0x15)
 static comms_packet_t ack_pkt = { .length=1, .data={0xff}, .crc=0 };
-static void ack_pkt_init(void) {
-	ack_pkt.data[0] = PACKET_ACK_DATA0;
-	ack_pkt.crc = comms_compute_crc(&ack_pkt);
-}
 
 static void comms_packet_copy(const comms_packet_t* src, comms_packet_t* dst) {
-	dst->length = src->length;
-	for (uint8_t i=0;i<PACKET_DATA_LENGTH;i++) {
-		dst->data[i] = src->data[i];
-	}
-	dst->crc = src->crc;
+	memcpy(dst,src,PACKET_LENGTH);
 }
 
 void comms_setup(void) {
-	retx_pkt_init();
-	ack_pkt_init();
+	comms_create_single_byte_packet(&retx_pkt, PACKET_RETX_DATA0);
+	comms_create_single_byte_packet(&ack_pkt, PACKET_ACK_DATA0);
 }
 
 static comms_state_t state = CommsState_Length;

@@ -26,6 +26,7 @@ static void gpio_setup(void) {
 	gpio_set_af(UART_PORT, GPIO_AF7, RX_PIN|TX_PIN);
 }
 
+
 int main(void) {
 	vector_setup();
 	system_setup();
