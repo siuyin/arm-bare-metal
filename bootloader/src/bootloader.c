@@ -195,6 +195,9 @@ int main(void) {
 			} break;
 			case BL_State_EraseApplication: {
 				bl_flash_erase_main_application();
+
+				comms_create_single_byte_packet(&pkt, BL_PACKET_READY_FOR_DATA_DATA0);
+				comms_write(&pkt);
 				simple_timer_reset(&timer);
 				state = BL_State_ReceiveFirmware;
 			} break;
@@ -211,6 +214,9 @@ int main(void) {
 						comms_create_single_byte_packet(&pkt, BL_PACKET_UPDATE_SUCCESSFUL_DATA0);
 						comms_write(&pkt);
 						state = BL_State_Done;
+					} else {
+						comms_create_single_byte_packet(&pkt, BL_PACKET_READY_FOR_DATA_DATA0);
+						comms_write(&pkt);
 					}
 				} else {
 					check_for_timeout();
