@@ -1,18 +1,17 @@
 #include "common-defines.h"
 #include <libopencm3/stm32/memorymap.h>
 #include <libopencm3/cm3/vector.h>
+#include <libopencm3/cm3/scb.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 
 #include "core/uart.h"
 #include "core/system.h"
+#include "core/firmware-info.h"
+#include "core/crc.h"
 #include "core/simple-timer.h"
 #include "comms.h"
 #include "bl-flash.h"
-
-#define BOOTLOADER_SIZE (0X8000U)
-#define MAIN_APP_START_ADDR (FLASH_BASE + BOOTLOADER_SIZE)
-#define MAX_FW_LENGTH  (1024U * 512U - BOOTLOADER_SIZE)
 
 #define UART_PORT (GPIOA)
 #define RX_PIN (GPIO3)
@@ -60,7 +59,21 @@ static void jump_to_main(void) {
 	main_vector_table->reset();
 }
 
-#define DEVICE_ID (0x42)
+static bool validate_firmware_image(void) {
+	firmware_info_t* firmware_info = (firmware_info_t*)FWINFO_ADDRESS;
+
+	if (firmware_info->sentinel != FWINFO_SENTINEL) {
+		return false;
+	}
+
+	if (firmware_info->device_id != DEVICE_ID) {
+		return false;
+	}
+
+	const uint8_t* start_address = (const uint8_t*)FWINFO_VALIDATE_FROM;
+	const uint32_t computed_crc = crc32(start_address,FWINFO_VALIDATE_LENGTH(firmware_info->length));
+	return computed_crc == firmware_info->crc32;
+}
 
 #define SYNC_SEQ_0 (0xc4)
 #define SYNC_SEQ_1 (0x55)
@@ -232,7 +245,11 @@ int main(void) {
 	uart_teardown();
 	gpio_teardown();
 	system_teardown();
-
-	jump_to_main();
+	
+	if (validate_firmware_image()) {
+		jump_to_main();
+	} else {
+		scb_reset_core();
+	}
 	return 0;
 }
